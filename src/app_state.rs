@@ -4,7 +4,12 @@ use crate::widget::{WidgetInstance, sample_widget_instances}; // Widget イン�
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable, Debug)]
-pub struct WidgetUniform { pub transform: [[f32;4];4], pub color: [f32;4] } // シェーダへ渡す行列 + RGBA 色
+pub struct WidgetUniform {
+    pub transform: [[f32;4];4], // 64 bytes
+    pub color: [f32;4],         // 16 bytes
+    pub size_border: [f32;4],   // (w_px, h_px, inset_px, thickness_px) 16 bytes
+    pub margins: [f32;4],       // (left, right, top, bottom) 16 bytes
+} // 112 bytes total
 
 pub struct GpuWidget {
     #[allow(dead_code)] pub widget_index: usize, // 対応するウィジェット番号（将来の参照用）
@@ -75,7 +80,7 @@ impl AppState {
     pub fn ensure_gpu_widgets(&mut self, device: &wgpu::Device) {
         while self.gpu_widgets.len() < self.widgets.len() { // 新規ウィジェット分だけ GPU リソース確保
             let idx = self.gpu_widgets.len();
-            let initial = WidgetUniform { transform: glam::Mat4::IDENTITY.to_cols_array_2d(), color: [0.0;4] }; // 初期は透明
+            let initial = WidgetUniform { transform: glam::Mat4::IDENTITY.to_cols_array_2d(), color: [0.0;4], size_border: [0.0;4], margins: [0.0;4] }; // 初期は透明
             let buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor { label: Some("widget uniform"), contents: bytemuck::bytes_of(&initial), usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST }); // 後で上書き可能
             let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor { label: Some("widget bind group"), layout: &self.bind_group_layout, entries: &[wgpu::BindGroupEntry { binding: 0, resource: buf.as_entire_binding() }] });
             self.gpu_widgets.push(GpuWidget { widget_index: idx, uniform_buf: buf, bind_group }); // 登録
@@ -94,8 +99,19 @@ impl AppState {
         let (sw, sh) = (surface_size.0 as f32, surface_size.1 as f32); // 画面サイズ（ピクセル→f32）
         // 将来的にレイアウトエンジンで rect を再計算する場合はここで widgets[..].rect を更新する。
         for (inst, gpu) in self.widgets.iter().zip(self.gpu_widgets.iter()) {
-            // 正規化 0..1 の矩形を現在のウィンドウサイズへ拡大
-            let x = inst.frac.x * sw; let y = inst.frac.y * sh; let w = inst.frac.w * sw; let h = inst.frac.h * sh;
+            // 正規化 0..1 の矩形を現在のウィンドウサイズへ拡大（外側矩形）
+            let outer_x = inst.frac.x * sw; let outer_y = inst.frac.y * sh; let outer_w = inst.frac.w * sw; let outer_h = inst.frac.h * sh;
+            // 各方向マージン（過剰ならクランプ）
+            let ml = inst.margin.left.min(outer_w * 0.5).max(0.0);
+            let mr = inst.margin.right.min(outer_w * 0.5).max(0.0);
+            let mt = inst.margin.top.min(outer_h * 0.5).max(0.0);
+            let mb = inst.margin.bottom.min(outer_h * 0.5).max(0.0);
+            // 内側（描画領域）
+            let x = outer_x + ml; // 左端
+            let y = outer_y + mt; // 上端（ウィンドウ座標系で上から）
+            let w = (outer_w - ml - mr).max(0.0);
+            let h = (outer_h - mt - mb).max(0.0);
+            // NDC 変換用 中心とスケール
             let tx = (x + w * 0.5) / sw * 2.0 - 1.0; // 中心 X (NDC)
             let ty = 1.0 - (y + h * 0.5) / sh * 2.0; // 中心 Y (NDC, 反転)
             let sx = (w / sw) * 2.0; // NDC スケール
@@ -105,7 +121,11 @@ impl AppState {
                 glam::Quat::IDENTITY,
                 glam::vec3(tx, ty, 0.0),
             );
-            let uni = WidgetUniform { transform: transform.to_cols_array_2d(), color: inst.widget.desired_color() };
+            // ピクセルベースのボーダー指定: 固定値（後で設定画面で変更可能にする想定）
+            const BORDER_INSET_PX: f32 = 16.0;     // 外枠から内側へのオフセット
+            const BORDER_THICKNESS_PX: f32 = 4.0;  // ボーダーの太さ
+            let size_border = [w, h, BORDER_INSET_PX, BORDER_THICKNESS_PX];
+            let uni = WidgetUniform { transform: transform.to_cols_array_2d(), color: inst.widget.desired_color(), size_border, margins: [ml, mr, mt, mb] };
             queue.write_buffer(&gpu.uniform_buf, 0, bytemuck::bytes_of(&uni));
         }
     }

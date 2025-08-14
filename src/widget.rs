@@ -24,10 +24,20 @@ pub trait Widget {
 
 /// Widget とそのレイアウト（正規化 0..1 矩形）をペアにした構造体。
 /// 実ピクセルサイズへは毎フレーム変換されるためウィンドウリサイズに追従する。
-pub struct WidgetInstance { pub widget: Box<dyn Widget>, pub frac: FractionRect }
+/// ピクセル単位のマージン（左/右/上/下 それぞれ独立）
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Default)]
+pub struct Margins { pub left: f32, pub right: f32, pub top: f32, pub bottom: f32 }
+impl Margins { pub const ZERO: Self = Self { left:0.0, right:0.0, top:0.0, bottom:0.0 }; }
+
+/// 1 ウィジェット + その正規化レイアウト矩形 + マージン
+pub struct WidgetInstance { pub widget: Box<dyn Widget>, pub frac: FractionRect, pub margin: Margins }
 
 impl WidgetInstance {
-    pub fn new(widget: Box<dyn Widget>, frac: FractionRect) -> Self { Self { widget, frac: frac.clamp() } }
+    /// マージン無し（ゼロ）で生成
+    pub fn new(widget: Box<dyn Widget>, frac: FractionRect) -> Self { Self { widget, frac: frac.clamp(), margin: Margins::ZERO } }
+    /// 明示的マージン付きで生成
+    pub fn with_margin(widget: Box<dyn Widget>, frac: FractionRect, margin: Margins) -> Self { Self { widget, frac: frac.clamp(), margin } }
 }
 
 // Example Widgets --------------------------------------------------------------
@@ -39,13 +49,25 @@ pub struct RedWidget { pub t: f32 } impl Widget for RedWidget { fn name(&self)->
 /// デモ用に複数のウィジェットインスタンスを作成して返す。
 pub fn sample_widget_instances() -> Vec<WidgetInstance> {
     vec![
-        // 左半分を埋める
-        WidgetInstance::new(Box::new(BlueWidget), FractionRect { x:0.0, y:0.0, w:0.5, h:1.0 }),
-        // 右上 40%
-        WidgetInstance::new(Box::new(RedWidget{t:0.0}), FractionRect { x:0.5, y:0.0, w:0.5, h:0.4 }),
-        // 右下残り
-        WidgetInstance::new(Box::new(BlueWidget), FractionRect { x:0.5, y:0.4, w:0.5, h:0.6 }),
-        // 画面中央オーバーレイ
+        // 左半分を埋める (上だけ余白 20px)
+        WidgetInstance::with_margin(
+            Box::new(BlueWidget),
+            FractionRect { x:0.0, y:0.0, w:0.5, h:1.0 },
+            Margins { left:0.0, right:0.0, top:20.0, bottom:0.0 }
+        ),
+        // 右上 40% (四辺 8px)
+        WidgetInstance::with_margin(
+            Box::new(RedWidget{t:0.0}),
+            FractionRect { x:0.5, y:0.0, w:0.5, h:0.4 },
+            Margins { left:8.0, right:8.0, top:8.0, bottom:8.0 }
+        ),
+        // 右下残り (左右 24px 下 12px)
+        WidgetInstance::with_margin(
+            Box::new(BlueWidget),
+            FractionRect { x:0.5, y:0.4, w:0.5, h:0.6 },
+            Margins { left:24.0, right:24.0, top:0.0, bottom:12.0 }
+        ),
+        // 画面中央オーバーレイ (マージン無し)
         WidgetInstance::new(Box::new(RedWidget{t:PI}), FractionRect { x:0.25, y:0.25, w:0.5, h:0.5 }),
     ]
 }
