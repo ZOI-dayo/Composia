@@ -1,4 +1,4 @@
-use std::f32::consts::PI; // 円周率定数
+// use std::f32::consts::PI; // (以前のデモで使用) 今は未使用
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug)]
@@ -12,14 +12,21 @@ impl FractionRect {
     }
 }
 
-/// UI / 表示要素を表すための最小限のトレイト。
+/// UI / 表示要素: CPU 側でピクセルを生成し親へ渡す能力を持つ。
 pub trait Widget {
-    /// 識別やデバッグ表示に使う名前を返す。
+    /// 識別やデバッグ表示用の名前。
     fn name(&self) -> &str;
-    /// 現在望む RGBA 色を返す（レンダリング用）。
-    fn desired_color(&self) -> [f32;4];
-    /// 経過時間 dt を用いた状態更新。デフォルトは何もしない。
+    /// 背景のベース色（テクスチャとブレンド）。
+    fn desired_color(&self) -> [f32;4] { [0.0,0.0,0.0,1.0] }
+    /// 経過時間 dt に基づく内部更新。
     fn update(&mut self, _dt: f32) {}
+    /// 与えられた RGBA8 ピクセルバッファ (width*height*4) を塗りつぶす。
+    /// width,height は親側の割当て。実装側はサイズ依存描画を行う。
+    fn draw_into(&mut self, _width: u32, _height: u32, _pixels: &mut [u8]) {
+        // 既定では単色 desired_color で塗る
+        let c = self.desired_color();
+        for px in _pixels.chunks_exact_mut(4) { px[0]=(c[0]*255.0) as u8; px[1]=(c[1]*255.0) as u8; px[2]=(c[2]*255.0) as u8; px[3]=(c[3]*255.0) as u8; }
+    }
 }
 
 /// Widget とそのレイアウト（正規化 0..1 矩形）をペアにした構造体。
@@ -41,33 +48,58 @@ impl WidgetInstance {
 }
 
 // Example Widgets --------------------------------------------------------------
-/// 固定色の青ウィジェット
-pub struct BlueWidget; impl Widget for BlueWidget { fn name(&self)->&str{"Blue"} fn desired_color(&self)->[f32;4]{[0.2,0.7,0.9,1.0]} }
-/// 時間経過で赤成分が周期変化するウィジェット
-pub struct RedWidget { pub t: f32 } impl Widget for RedWidget { fn name(&self)->&str{"Red"} fn desired_color(&self)->[f32;4]{ let r=(self.t*0.7).sin()*0.5+0.5; [r,0.1,0.1,1.0]} fn update(&mut self,dt:f32){ self.t+=dt; }}
+/// 固定色塗り (基底実装そのまま)
+pub struct SolidColor(pub [f32;4]);
+impl Widget for SolidColor { fn name(&self)->&str{"Solid"} fn desired_color(&self)->[f32;4]{ self.0 } }
+
+/// 垂直グラデーション (top -> bottom)
+pub struct VerticalGradient { pub top:[f32;4], pub bottom:[f32;4] }
+impl Widget for VerticalGradient {
+    fn name(&self)->&str{"VGrad"}
+    fn draw_into(&mut self,w:u32,h:u32,p:&mut [u8]){
+        for y in 0..h { let t = y as f32 / (h.max(1)-1) as f32; let mut row_color=[0.0f32;4];
+            for i in 0..4 { row_color[i] = self.top[i]*(1.0-t)+self.bottom[i]*t; }
+            let row_start = (y*w*4) as usize; let row_slice=&mut p[row_start..row_start+(w*4) as usize];
+            for px in row_slice.chunks_exact_mut(4) { px[0]=(row_color[0]*255.0) as u8; px[1]=(row_color[1]*255.0) as u8; px[2]=(row_color[2]*255.0) as u8; px[3]=(row_color[3]*255.0) as u8; }
+        }
+    }
+}
+
+/// ランダムノイズ (毎フレーム更新)
+pub struct Noise { pub rng: rand::rngs::SmallRng }
+impl Noise { pub fn new(seed:u64)->Self{ use rand::SeedableRng; Self{ rng: rand::rngs::SmallRng::seed_from_u64(seed)} } }
+impl Widget for Noise {
+    fn name(&self)->&str{"Noise"}
+    fn update(&mut self,_dt:f32){ /* could animate parameters */ }
+    fn draw_into(&mut self,w:u32,h:u32,p:&mut [u8]){
+    use rand::RngCore; let n = (w as usize)*(h as usize);
+    for i in 0..n { let v: u8 = (self.rng.next_u32() & 0xFF) as u8; let o=i*4; p[o]=v; p[o+1]=v; p[o+2]=v; p[o+3]=255; }
+    }
+}
+
+/// 時間で赤成分を変化させる動的サンプル
+pub struct PulsingRed { pub t:f32 }
+impl Widget for PulsingRed { fn name(&self)->&str{"PulseRed"} fn update(&mut self,dt:f32){ self.t+=dt; } fn draw_into(&mut self,w:u32,h:u32,p:&mut [u8]){
+    let r=((self.t*0.7).sin()*0.5+0.5) as f32; for y in 0..h { for x in 0..w { let o = ((y*w+x)*4) as usize; p[o]=(r*255.0) as u8; p[o+1]=30; p[o+2]=30; p[o+3]=255; }} }}
 
 /// デモ用に複数のウィジェットインスタンスを作成して返す。
 pub fn sample_widget_instances() -> Vec<WidgetInstance> {
     vec![
-        // 左半分を埋める (上だけ余白 20px)
         WidgetInstance::with_margin(
-            Box::new(BlueWidget),
+            Box::new(VerticalGradient{ top:[0.2,0.7,0.9,1.0], bottom:[0.0,0.0,0.2,1.0]}),
             FractionRect { x:0.0, y:0.0, w:0.5, h:1.0 },
             Margins { left:0.0, right:0.0, top:20.0, bottom:0.0 }
         ),
-        // 右上 40% (四辺 8px)
         WidgetInstance::with_margin(
-            Box::new(RedWidget{t:0.0}),
+            Box::new(PulsingRed{t:0.0}),
             FractionRect { x:0.5, y:0.0, w:0.5, h:0.4 },
             Margins { left:8.0, right:8.0, top:8.0, bottom:8.0 }
         ),
-        // 右下残り (左右 24px 下 12px)
         WidgetInstance::with_margin(
-            Box::new(BlueWidget),
+            Box::new(Noise::new(42)),
             FractionRect { x:0.5, y:0.4, w:0.5, h:0.6 },
             Margins { left:24.0, right:24.0, top:0.0, bottom:12.0 }
         ),
-        // 画面中央オーバーレイ (マージン無し)
-        WidgetInstance::new(Box::new(RedWidget{t:PI}), FractionRect { x:0.25, y:0.25, w:0.5, h:0.5 }),
+        WidgetInstance::new(Box::new(SolidColor([0.1,0.2,0.6,1.0])), FractionRect { x:0.25, y:0.25, w:0.5, h:0.5 }),
     ]
 }

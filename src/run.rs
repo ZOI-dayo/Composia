@@ -77,7 +77,7 @@ pub async fn run() {
                 frame.present(); // 画面に表示
             }
             Event::AboutToWait => { // 待機直前にアップデートと次フレーム要求
-                app.update(&queue, (config.width, config.height)); // 状態更新
+                app.update(&device, &queue, (config.width, config.height)); // 状態更新 (デバイス参照を追加)
                 window.request_redraw(); // 再描画要求発行
             }
             _ => {}
