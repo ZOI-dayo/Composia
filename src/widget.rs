@@ -27,6 +27,8 @@ pub trait Widget {
         let c = self.desired_color();
         for px in _pixels.chunks_exact_mut(4) { px[0]=(c[0]*255.0) as u8; px[1]=(c[1]*255.0) as u8; px[2]=(c[2]*255.0) as u8; px[3]=(c[3]*255.0) as u8; }
     }
+    /// 親側レイアウト情報 (ウィジェットのグローバル左上 px / サイズ px / 全体サーフェス px) を通知。
+    fn set_layout(&mut self, _origin_px:[f32;2], _widget_size_px:[f32;2], _surface_px:[f32;2]) {}
 }
 
 /// Widget とそのレイアウト（正規化 0..1 矩形）をペアにした構造体。
@@ -47,59 +49,40 @@ impl WidgetInstance {
     pub fn with_margin(widget: Box<dyn Widget>, frac: FractionRect, margin: Margins) -> Self { Self { widget, frac: frac.clamp(), margin } }
 }
 
-// Example Widgets --------------------------------------------------------------
-/// 固定色塗り (基底実装そのまま)
-pub struct SolidColor(pub [f32;4]);
-impl Widget for SolidColor { fn name(&self)->&str{"Solid"} fn desired_color(&self)->[f32;4]{ self.0 } }
-
-/// 垂直グラデーション (top -> bottom)
-pub struct VerticalGradient { pub top:[f32;4], pub bottom:[f32;4] }
-impl Widget for VerticalGradient {
-    fn name(&self)->&str{"VGrad"}
-    fn draw_into(&mut self,w:u32,h:u32,p:&mut [u8]){
-        for y in 0..h { let t = y as f32 / (h.max(1)-1) as f32; let mut row_color=[0.0f32;4];
-            for i in 0..4 { row_color[i] = self.top[i]*(1.0-t)+self.bottom[i]*t; }
-            let row_start = (y*w*4) as usize; let row_slice=&mut p[row_start..row_start+(w*4) as usize];
-            for px in row_slice.chunks_exact_mut(4) { px[0]=(row_color[0]*255.0) as u8; px[1]=(row_color[1]*255.0) as u8; px[2]=(row_color[2]*255.0) as u8; px[3]=(row_color[3]*255.0) as u8; }
-        }
-    }
+// 個別 widget 実装モジュール
+pub mod widgets {
+    pub use crate::widgets::solid_color::SolidColor;
+    pub use crate::widgets::vertical_gradient::VerticalGradient;
+    pub use crate::widgets::noise::Noise;
+    pub use crate::widgets::pulsing_red::PulsingRed;
+    pub use crate::widgets::node_widget::{NodeWidget, Node};
 }
-
-/// ランダムノイズ (毎フレーム更新)
-pub struct Noise { pub rng: rand::rngs::SmallRng }
-impl Noise { pub fn new(seed:u64)->Self{ use rand::SeedableRng; Self{ rng: rand::rngs::SmallRng::seed_from_u64(seed)} } }
-impl Widget for Noise {
-    fn name(&self)->&str{"Noise"}
-    fn update(&mut self,_dt:f32){ /* could animate parameters */ }
-    fn draw_into(&mut self,w:u32,h:u32,p:&mut [u8]){
-    use rand::RngCore; let n = (w as usize)*(h as usize);
-    for i in 0..n { let v: u8 = (self.rng.next_u32() & 0xFF) as u8; let o=i*4; p[o]=v; p[o+1]=v; p[o+2]=v; p[o+3]=255; }
-    }
-}
-
-/// 時間で赤成分を変化させる動的サンプル
-pub struct PulsingRed { pub t:f32 }
-impl Widget for PulsingRed { fn name(&self)->&str{"PulseRed"} fn update(&mut self,dt:f32){ self.t+=dt; } fn draw_into(&mut self,w:u32,h:u32,p:&mut [u8]){
-    let r=((self.t*0.7).sin()*0.5+0.5) as f32; for y in 0..h { for x in 0..w { let o = ((y*w+x)*4) as usize; p[o]=(r*255.0) as u8; p[o+1]=30; p[o+2]=30; p[o+3]=255; }} }}
 
 /// デモ用に複数のウィジェットインスタンスを作成して返す。
 pub fn sample_widget_instances() -> Vec<WidgetInstance> {
     vec![
         WidgetInstance::with_margin(
-            Box::new(VerticalGradient{ top:[0.2,0.7,0.9,1.0], bottom:[0.0,0.0,0.2,1.0]}),
+            Box::new(widgets::VerticalGradient{ top:[0.2,0.7,0.9,1.0], bottom:[0.0,0.0,0.2,1.0]}),
             FractionRect { x:0.0, y:0.0, w:0.5, h:1.0 },
             Margins { left:0.0, right:0.0, top:20.0, bottom:0.0 }
         ),
         WidgetInstance::with_margin(
-            Box::new(PulsingRed{t:0.0}),
+            Box::new(widgets::PulsingRed{t:0.0}),
             FractionRect { x:0.5, y:0.0, w:0.5, h:0.4 },
             Margins { left:8.0, right:8.0, top:8.0, bottom:8.0 }
         ),
         WidgetInstance::with_margin(
-            Box::new(Noise::new(42)),
+            Box::new(widgets::Noise::new(42)),
             FractionRect { x:0.5, y:0.4, w:0.5, h:0.6 },
             Margins { left:24.0, right:24.0, top:0.0, bottom:12.0 }
         ),
-        WidgetInstance::new(Box::new(SolidColor([0.1,0.2,0.6,1.0])), FractionRect { x:0.25, y:0.25, w:0.5, h:0.5 }),
+        // NodeWidget: node.pos はウィジェット内 0..1 ローカル座標
+        WidgetInstance::new(Box::new(widgets::NodeWidget::with_nodes([0.05,0.05,0.08,0.25], vec![
+            widgets::Node { pos:[0.14,0.26], size_frac:[0.18,0.10], color:[1.0,0.35,0.35,0.95]},
+            widgets::Node { pos:[0.40,0.60], size_frac:[0.14,0.14], color:[0.30,0.85,0.45,0.85]},
+            widgets::Node { pos:[0.66,0.44], size_frac:[0.12,0.10], color:[0.30,0.45,1.0,0.90]},
+            widgets::Node { pos:[0.50,0.80], size_frac:[0.16,0.12], color:[1.0,0.82,0.25,0.88]},
+            widgets::Node { pos:[0.30,0.46], size_frac:[0.08,0.08], color:[0.9,0.2,1.0,0.9]},
+        ])), FractionRect { x:0.25, y:0.25, w:0.5, h:0.5 }),
     ]
 }
