@@ -180,7 +180,7 @@ impl AppState {
             let needed = (w_px as usize)*(h_px as usize)*4;
             if gpu.pixel_buffer.len()!=needed { gpu.pixel_buffer.resize(needed,0); }
             inst.widget.set_layout([x,y],[w,h],[sw,sh]);
-            inst.widget.draw_into(w_px,h_px,&mut gpu.pixel_buffer);
+            inst.widget.draw_into(w_px,h_px,&mut gpu.pixel_buffer); // TODO: bufferは範囲を制限して渡す
             // CPU → GPU 転送
             queue.write_texture(
                 wgpu::ImageCopyTexture { texture: &gpu.texture, mip_level:0, origin: wgpu::Origin3d::ZERO, aspect: wgpu::TextureAspect::All },

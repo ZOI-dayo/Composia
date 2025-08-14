@@ -76,13 +76,15 @@ pub fn sample_widget_instances() -> Vec<WidgetInstance> {
             FractionRect { x:0.5, y:0.4, w:0.5, h:0.6 },
             Margins { left:24.0, right:24.0, top:0.0, bottom:12.0 }
         ),
-        // NodeWidget: node.pos はウィジェット内 0..1 ローカル座標
+    // NodeWidget (px ベース): ノード中心座標 / サイズは NodeWidget の描画領域 左下 を (0,0) とするピクセル値
+        // ここではウィジェット想定サイズ  (後で実際の割当 px に依存) に対し 400x300 程度を想定したデモ値を配置
         WidgetInstance::new(Box::new(widgets::NodeWidget::with_nodes([0.05,0.05,0.08,0.25], vec![
-            widgets::Node { pos:[0.14,0.26], size_frac:[0.18,0.10], color:[1.0,0.35,0.35,0.95]},
-            widgets::Node { pos:[0.40,0.60], size_frac:[0.14,0.14], color:[0.30,0.85,0.45,0.85]},
-            widgets::Node { pos:[0.66,0.44], size_frac:[0.12,0.10], color:[0.30,0.45,1.0,0.90]},
-            widgets::Node { pos:[0.50,0.80], size_frac:[0.16,0.12], color:[1.0,0.82,0.25,0.88]},
-            widgets::Node { pos:[0.30,0.46], size_frac:[0.08,0.08], color:[0.9,0.2,1.0,0.9]},
+            // pos:[x,y] (中心, 左下原点), size_px:[w,h]
+            widgets::Node { pos:[ 60.0,  60.0], size_px:[140.0, 80.0], color:[1.0,0.35,0.35,0.95]},
+            widgets::Node { pos:[180.0, 160.0], size_px:[110.0,110.0], color:[0.30,0.85,0.45,0.85]},
+            widgets::Node { pos:[300.0, 120.0], size_px:[100.0, 80.0], color:[0.30,0.45,1.0,0.90]},
+            widgets::Node { pos:[340.0, 100.0], size_px:[130.0,100.0], color:[1.0,0.82,0.25,0.88]},
+            widgets::Node { pos:[280.0, 220.0], size_px:[ 70.0, 70.0], color:[0.9,0.2,1.0,0.9]},
         ])), FractionRect { x:0.25, y:0.25, w:0.5, h:0.5 }),
     ]
 }
