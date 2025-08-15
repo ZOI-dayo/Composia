@@ -1,6 +1,6 @@
-mod state;
 mod graphics;
 mod imgui_setup;
+mod state;
 mod ui;
 
 use state::State;
@@ -24,7 +24,9 @@ async fn main() {
     let mut state = State::new(&window).await;
 
     event_loop.run(move |event, _, control_flow| {
-        state.platform.handle_event(state.imgui.io_mut(), &window, &event);
+        state
+            .platform
+            .handle_event(state.imgui.io_mut(), &window, &event);
 
         match event {
             Event::WindowEvent {

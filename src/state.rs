@@ -18,6 +18,7 @@ pub struct State {
     pub last_frame: Instant,
     pub value: usize,
     pub choices: [&'static str; 2],
+    pub imnodes_editor: imnodes::EditorContext,
 }
 
 impl State {
@@ -45,6 +46,7 @@ impl State {
             size,
             imgui: imgui_setup.imgui,
             imnodes: imgui_setup.imnodes,
+            imnodes_editor: imgui_setup.imnodes_editor,
             platform: imgui_setup.platform,
             renderer: imgui_setup.renderer,
             last_frame,
@@ -87,7 +89,7 @@ impl State {
         let ui = self.imgui.frame();
 
         // UIを描画
-        render_ui(&ui, &mut self.value, &self.choices, &mut self.imnodes);
+        render_ui(&ui, &mut self.value, &self.choices, &mut self.imnodes_editor);
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),

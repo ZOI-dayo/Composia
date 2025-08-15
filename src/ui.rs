@@ -5,7 +5,7 @@ pub fn render_ui(
     ui: &imgui::Ui,
     value: &mut usize,
     choices: &[&'static str; 2],
-    imnodes: &mut imnodes::Context,
+    editor: &mut imnodes::EditorContext,
 ) {
     ui.window("Hello world")
         .size([300.0, 110.0], Condition::FirstUseEver)
@@ -26,50 +26,45 @@ pub fn render_ui(
             ));
         });
 
+    ui.window("Node Editor")
+        .size([600.0, 400.0], Condition::FirstUseEver)
+        .build(|| {
+            editor.set_as_current_editor();
+            let mut id_generator = editor.new_identifier_generator();
 
-    let mut context = imnodes.create_editor();
-    context.set_as_current_editor();
-    let mut id_generator = context.new_identifier_generator();
+            imnodes::editor(editor, |mut editor| {
+                editor.add_node(id_generator.next_node(), |mut node| {
+                    node.add_titlebar(|| ui.text("simple node :)"));
 
-    let outer_scope = imnodes::editor(&mut context, |mut editor| {
-        editor.add_node(id_generator.next_node(), |mut node| {
-            node.add_titlebar(|| ui.text("simple node :)"));
+                    node.add_input(
+                        id_generator.next_input_pin(),
+                        imnodes::PinShape::Circle,
+                        || ui.text("input"),
+                    );
 
-            node.add_input(
-                id_generator.next_input_pin(),
-                imnodes::PinShape::Circle,
-                || ui.text("input"),
-            );
+                    node.add_output(
+                        id_generator.next_output_pin(),
+                        imnodes::PinShape::QuadFilled,
+                        || ui.text("output"),
+                    );
+                });
 
-            node.add_output(
-                id_generator.next_output_pin(),
-                imnodes::PinShape::QuadFilled,
-                || ui.text("output"),
-            );
+                let node2 = id_generator.next_node();
+                editor.add_node(node2, |mut node| {
+                    node.add_titlebar(|| ui.text("simple node2 :)"));
+
+                    node.add_input(
+                        id_generator.next_input_pin(),
+                        imnodes::PinShape::Circle,
+                        || ui.text("input"),
+                    );
+
+                    node.add_output(
+                        id_generator.next_output_pin(),
+                        imnodes::PinShape::QuadFilled,
+                        || ui.text("output"),
+                    );
+                });
+            });
         });
-        let node2 = id_generator.next_node();
-        editor.add_node(node2, |mut node| {
-            node.add_titlebar(|| ui.text("simple node2 :)"));
-
-            node.add_input(
-                id_generator.next_input_pin(),
-                imnodes::PinShape::Circle,
-                || ui.text("input"),
-            );
-
-            node.add_output(
-                id_generator.next_output_pin(),
-                imnodes::PinShape::QuadFilled,
-                || ui.text("output"),
-            );
-        });
-        node2.set_draggable(true);
-        node2.set_position(100.0, 100.0, CoordinateSystem::EditorSpace);
-    });
-    if let Some(link) = outer_scope.links_created() {
-        println!("Link created: {:?}", link);
-    }
-    if let Some(dropped_link_id) = outer_scope.get_dropped_link() {
-        println!("Link dropped: {:?}", dropped_link_id);
-    }
 }
