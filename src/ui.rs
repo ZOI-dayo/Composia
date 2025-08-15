@@ -1,11 +1,12 @@
 use imgui::Condition;
-use imnodes::CoordinateSystem;
+use imnodes::{CoordinateSystem, LinkId};
 
 pub fn render_ui(
     ui: &imgui::Ui,
     value: &mut usize,
     choices: &[&'static str; 2],
     editor: &mut imnodes::EditorContext,
+    links: &mut Vec<(imnodes::LinkId, imnodes::OutputPinId, imnodes::InputPinId)>,
 ) {
     ui.window("Hello world")
         .size([300.0, 110.0], Condition::FirstUseEver)
@@ -32,7 +33,7 @@ pub fn render_ui(
             editor.set_as_current_editor();
             let mut id_generator = editor.new_identifier_generator();
 
-            imnodes::editor(editor, |mut editor| {
+            let outer_scope = imnodes::editor(editor, |mut editor| {
                 editor.add_node(id_generator.next_node(), |mut node| {
                     node.add_titlebar(|| ui.text("simple node :)"));
 
@@ -65,6 +66,19 @@ pub fn render_ui(
                         || ui.text("output"),
                     );
                 });
+                for link in links.iter() {
+                    editor.add_link(link.0, link.2, link.1);
+                }
             });
+            if let Some(link) = outer_scope.links_created() {
+                links.push((
+                    id_generator.next_link(),
+                    link.start_pin,
+                    link.end_pin,
+                ));
+            }
+            if let Some(dropped_link_id) = outer_scope.get_dropped_link() {
+                println!("Link dropped: {:?}", dropped_link_id);
+            }
         });
 }

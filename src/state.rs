@@ -19,6 +19,7 @@ pub struct State {
     pub value: usize,
     pub choices: [&'static str; 2],
     pub imnodes_editor: imnodes::EditorContext,
+    pub links: Vec<(imnodes::LinkId, imnodes::OutputPinId, imnodes::InputPinId)>,
 }
 
 impl State {
@@ -52,6 +53,7 @@ impl State {
             last_frame,
             value: 0,
             choices: ["test test this is 1", "test test this is 2"],
+            links: Vec::new(),
         }
     }
 
@@ -89,7 +91,7 @@ impl State {
         let ui = self.imgui.frame();
 
         // UIを描画
-        render_ui(&ui, &mut self.value, &self.choices, &mut self.imnodes_editor);
+        render_ui(&ui, &mut self.value, &self.choices, &mut self.imnodes_editor, &mut self.links);
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
