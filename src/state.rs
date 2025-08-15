@@ -12,6 +12,7 @@ pub struct State {
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub imgui: imgui::Context,
+    pub imnodes: imnodes::Context,
     pub platform: WinitPlatform,
     pub renderer: Renderer,
     pub last_frame: Instant,
@@ -43,6 +44,7 @@ impl State {
             config: graphics_state.config,
             size,
             imgui: imgui_setup.imgui,
+            imnodes: imgui_setup.imnodes,
             platform: imgui_setup.platform,
             renderer: imgui_setup.renderer,
             last_frame,
@@ -85,7 +87,7 @@ impl State {
         let ui = self.imgui.frame();
 
         // UIを描画
-        render_ui(&ui, &mut self.value, &self.choices);
+        render_ui(&ui, &mut self.value, &self.choices, &mut self.imnodes);
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
