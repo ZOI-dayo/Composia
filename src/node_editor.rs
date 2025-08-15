@@ -9,9 +9,8 @@ pub struct NetworkState {
 }
 
 impl NetworkState {
-    pub fn new() -> Self {
-        let imnodes = imnodes::Context::new();
-        let imnodes_editor = imnodes.create_editor();
+    pub fn new(imnodes_context: &imnodes::Context) -> Self {
+        let imnodes_editor = imnodes_context.create_editor();
         let id_gen = imnodes_editor.new_identifier_generator();
         Self {
             imnodes_editor,
@@ -35,12 +34,14 @@ pub enum PinType {
 
 pub struct InputPinInfo {
     pub id: InputPinId,
+    #[allow(dead_code)] // Will be used for type checking in the future
     pub pin_type: PinType,
     pub body: Box<dyn Fn(&Ui)>,
 }
 
 pub struct OutputPinInfo {
     pub id: imnodes::OutputPinId,
+    #[allow(dead_code)] // Will be used for type checking in the future  
     pub pin_type: PinType,
     pub body: Box<dyn Fn(&Ui)>,
 }

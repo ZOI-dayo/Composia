@@ -18,6 +18,8 @@ pub struct State {
     pub last_frame: Instant,
     pub value: usize,
     pub choices: [&'static str; 2],
+    #[allow(dead_code)] // Used to maintain lifetime of imnodes context
+    pub imnodes_context: imnodes::Context,
     pub node_state: NetworkState,
 }
 
@@ -38,6 +40,8 @@ impl State {
 
         let last_frame = Instant::now();
 
+        let imnodes_context = imnodes::Context::new();
+
         Self {
             surface: graphics_state.surface,
             device: graphics_state.device,
@@ -50,7 +54,8 @@ impl State {
             last_frame,
             value: 0,
             choices: ["test test this is 1", "test test this is 2"],
-            node_state: NetworkState::new()
+            node_state: NetworkState::new(&imnodes_context),
+            imnodes_context,
         }
     }
 
