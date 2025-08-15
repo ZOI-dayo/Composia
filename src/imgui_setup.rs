@@ -3,8 +3,6 @@ use imgui_winit_support::{HiDpiMode, WinitPlatform};
 
 pub struct ImGuiSetup {
     pub imgui: imgui::Context,
-    pub imnodes: imnodes::Context,
-    pub imnodes_editor: imnodes::EditorContext,
     pub platform: WinitPlatform,
     pub renderer: Renderer,
 }
@@ -19,9 +17,6 @@ impl ImGuiSetup {
         // imguiの初期化
         let mut imgui = imgui::Context::create();
         imgui.set_ini_filename(None);
-
-        let imnodes = imnodes::Context::new();
-        let imnodes_editor = imnodes.create_editor();
 
         let mut platform = WinitPlatform::init(&mut imgui);
         platform.attach_window(imgui.io_mut(), &window, HiDpiMode::Default);
@@ -50,8 +45,6 @@ impl ImGuiSetup {
 
         Self {
             imgui,
-            imnodes,
-            imnodes_editor,
             platform,
             renderer,
         }

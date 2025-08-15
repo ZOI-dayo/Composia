@@ -2,6 +2,7 @@ mod graphics;
 mod imgui_setup;
 mod state;
 mod ui;
+mod node_editor;
 
 use state::State;
 use winit::{

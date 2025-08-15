@@ -3,6 +3,7 @@ use imgui_winit_support::WinitPlatform;
 use std::time::Instant;
 use crate::graphics::GraphicsState;
 use crate::imgui_setup::ImGuiSetup;
+use crate::node_editor::NetworkState;
 use crate::ui::render_ui;
 
 pub struct State {
@@ -12,14 +13,12 @@ pub struct State {
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub imgui: imgui::Context,
-    pub imnodes: imnodes::Context,
     pub platform: WinitPlatform,
     pub renderer: Renderer,
     pub last_frame: Instant,
     pub value: usize,
     pub choices: [&'static str; 2],
-    pub imnodes_editor: imnodes::EditorContext,
-    pub links: Vec<(imnodes::LinkId, imnodes::OutputPinId, imnodes::InputPinId)>,
+    pub node_state: NetworkState,
 }
 
 impl State {
@@ -46,14 +45,12 @@ impl State {
             config: graphics_state.config,
             size,
             imgui: imgui_setup.imgui,
-            imnodes: imgui_setup.imnodes,
-            imnodes_editor: imgui_setup.imnodes_editor,
             platform: imgui_setup.platform,
             renderer: imgui_setup.renderer,
             last_frame,
             value: 0,
             choices: ["test test this is 1", "test test this is 2"],
-            links: Vec::new(),
+            node_state: NetworkState::new()
         }
     }
 
@@ -91,7 +88,7 @@ impl State {
         let ui = self.imgui.frame();
 
         // UIを描画
-        render_ui(&ui, &mut self.value, &self.choices, &mut self.imnodes_editor, &mut self.links);
+        render_ui(&ui, &mut self.value, &self.choices, &mut self.node_state);
 
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
